@@ -118,7 +118,7 @@ class TestGeometricChunker:
         assert sentences[2] == "I am fine."
 
 
-class TestCosineSimlarity:
+class TestCosineSimilarity:
     """Tests for cosine similarity calculation."""
     
     @patch('surgical_rag.chunker.SentenceTransformer')

@@ -73,19 +73,15 @@ class LinkedListStore:
             metadatas.append(metadata)
         
         # Store in ChromaDB
+        add_params = {
+            "ids": chunk_ids,
+            "documents": chunks,
+            "metadatas": metadatas
+        }
         if embeddings:
-            self.collection.add(
-                ids=chunk_ids,
-                documents=chunks,
-                embeddings=embeddings,
-                metadatas=metadatas
-            )
-        else:
-            self.collection.add(
-                ids=chunk_ids,
-                documents=chunks,
-                metadatas=metadatas
-            )
+            add_params["embeddings"] = embeddings
+        
+        self.collection.add(**add_params)
         
         return chunk_ids
     

@@ -80,13 +80,34 @@ class SurgicalRetriever(dspy.Retrieve):
         Returns:
             dspy.Prediction with 'passages' containing retrieved text.
         """
+        sorted_chunks = self._retrieve_chunks_with_neighbors(query, k)
+        
+        if not sorted_chunks:
+            return dspy.Prediction(passages=[])
+        
+        # Extract passages
+        passages = [chunk["text"] for chunk in sorted_chunks]
+        
+        return dspy.Prediction(passages=passages)
+    
+    def _retrieve_chunks_with_neighbors(self, query: str, k: Optional[int] = None) -> List[dict]:
+        """
+        Internal method to retrieve chunks and their neighbors.
+        
+        Args:
+            query: The search query.
+            k: Optional override for number of results.
+            
+        Returns:
+            Sorted list of chunk dicts.
+        """
         k = k or self.k
         
         # Search for top-K anchor chunks
         anchors = self.store.query(query_text=query, n_results=k)
         
         if not anchors:
-            return dspy.Prediction(passages=[])
+            return []
         
         # Collect all chunks (anchors + neighbors)
         all_chunks = {}  # Use dict to deduplicate by ID
@@ -110,15 +131,10 @@ class SurgicalRetriever(dspy.Retrieve):
                     all_chunks[neighbor["id"]] = neighbor
         
         # Sort by index to maintain document order
-        sorted_chunks = sorted(
+        return sorted(
             all_chunks.values(),
             key=lambda x: x["metadata"].get("index", 0)
         )
-        
-        # Extract passages
-        passages = [chunk["text"] for chunk in sorted_chunks]
-        
-        return dspy.Prediction(passages=passages)
     
     def retrieve_with_context(self, query: str, k: Optional[int] = None) -> List[dict]:
         """
@@ -131,35 +147,4 @@ class SurgicalRetriever(dspy.Retrieve):
         Returns:
             List of chunk dicts with metadata.
         """
-        k = k or self.k
-        
-        # Search for top-K anchor chunks
-        anchors = self.store.query(query_text=query, n_results=k)
-        
-        if not anchors:
-            return []
-        
-        # Collect all chunks (anchors + neighbors)
-        all_chunks = {}
-        
-        for anchor in anchors:
-            all_chunks[anchor["id"]] = anchor
-            
-            if self.fetch_neighbors:
-                prev_neighbors = self._fetch_neighbor_chain(
-                    anchor["id"], "prev", self.neighbor_depth
-                )
-                for neighbor in prev_neighbors:
-                    all_chunks[neighbor["id"]] = neighbor
-                
-                next_neighbors = self._fetch_neighbor_chain(
-                    anchor["id"], "next", self.neighbor_depth
-                )
-                for neighbor in next_neighbors:
-                    all_chunks[neighbor["id"]] = neighbor
-        
-        # Sort by index to maintain document order
-        return sorted(
-            all_chunks.values(),
-            key=lambda x: x["metadata"].get("index", 0)
-        )
+        return self._retrieve_chunks_with_neighbors(query, k)
